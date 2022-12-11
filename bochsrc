@@ -1,0 +1,238 @@
+cpu: model=core2_penryn_t9600, count=1, ips=50000000, reset_on_triple_fault=1, ignore_bad_msrs=1, msrs="msrs.def"
+cpu: cpuid_limit_winnt=0
+
+memory: guest=512, host=256
+
+#=======================================================================
+# ROMIMAGE:
+# The ROM BIOS controls what the PC does when it first powers on.
+# Normally, you can use a precompiled BIOS in the source or binary
+# distribution called BIOS-bochs-latest. The default ROM BIOS is usually loaded
+# starting at address 0xfffe0000, and it is exactly 128k long. The legacy
+# version of the Bochs BIOS is usually loaded starting at address 0xffff0000,
+# and it is exactly 64k long.
+# You can use the environment variable $BXSHARE to specify the location
+# of the BIOS.
+# The usage of external large BIOS images (up to 512k) at memory top is
+# now supported, but we still recommend to use the BIOS distributed with Bochs.
+# The start address is optional, since it can be calculated from image size.
+# The Bochs BIOS currently supports only the option "fastboot" to skip the
+# boot menu delay.
+#=======================================================================
+romimage: file=$BXSHARE/BIOS-bochs-latest, options=fastboot
+#romimage: file=$BXSHARE/bios.bin-1.13.0 # http://www.seabios.org/SeaBIOS
+#romimage: file=mybios.bin, address=0xfff80000 # 512k at memory top
+
+#=======================================================================
+# VGAROMIMAGE
+# You now need to load a VGA ROM BIOS into C0000.
+#=======================================================================
+vgaromimage: file=$BXSHARE/VGABIOS-lgpl-latest
+#vgaromimage: file=bios/VGABIOS-lgpl-latest-cirrus
+#vgaromimage: file=$BXSHARE/vgabios-cirrus.bin-1.13.0 # http://www.seabios.org/SeaVGABIOS
+#vgaromimage: file=bios/VGABIOS-elpin-2.40
+
+#=======================================================================
+# OPTROMIMAGE[1-4]:
+# You may now load up to 4 optional ROM images. Be sure to use a 
+# read-only area, typically between C8000 and EFFFF. These optional
+# ROM images should not overwrite the rombios (located at
+# F0000-FFFFF) and the videobios (located at C0000-C7FFF).
+# Those ROM images will be initialized by the bios if they contain 
+# the right signature (0x55AA) and a valid checksum.
+# It can also be a convenient way to upload some arbitrary code/data
+# in the simulation, that can be retrieved by the boot loader
+#=======================================================================
+#optromimage1: file=optionalrom.bin, address=0xd0000
+#optromimage2: file=optionalrom.bin, address=0xd1000
+#optromimage3: file=optionalrom.bin, address=0xd2000
+#optromimage4: file=optionalrom.bin, address=0xd3000
+
+#optramimage1: file=/path/file1.img, address=0x0010000
+#optramimage2: file=/path/file2.img, address=0x0020000
+#optramimage3: file=/path/file3.img, address=0x0030000
+#optramimage4: file=/path/file4.img, address=0x0040000
+
+#=======================================================================
+# VGA:
+# This defines parameters related to the VGA display
+#
+#   EXTENSION
+#     Here you can specify the display extension to be used. With the value
+#     'none' you can use standard VGA with no extension. Other supported
+#     values are 'vbe' for Bochs VBE, 'cirrus' for Cirrus SVGA support and
+#     'voodoo' for Voodoo Graphics support (see 'voodoo' option).
+#
+#   UPDATE_FREQ
+#     This parameter specifies the number of display updates per second.
+#     The VGA update timer by default uses the realtime engine with a value
+#     of 5. This parameter can be changed at runtime.
+#
+#   REALTIME
+#     If set to 1 (default), the VGA timer is based on realtime, otherwise it
+#     is driven by the cpu and depends on the ips setting. If the host is slow
+#     (low ips, update_freq) and the guest uses HLT appropriately, setting this
+#     to 0 and "clock: sync=none" may improve the responsiveness of the guest
+#     GUI when the guest is otherwise idle.
+#
+#   DDC
+#     This parameter defines the behaviour of the DDC emulation that returns
+#     the monitor EDID data. By default the 'builtin' values for 'Bochs Screen'
+#     are used. Other choices are 'disabled' (no DDC emulation) and 'file'
+#     (read monitor EDID from file / path name separated with a colon).
+# Examples:
+#   vga: extension=cirrus, update_freq=10, ddc=builtin
+#=======================================================================
+#vga: extension=vbe, update_freq=5, realtime=1, ddc=file:monitor.bin
+
+#=======================================================================
+# VOODOO:
+# This defines the Voodoo Graphics emulation (experimental). Currently
+# supported models are 'voodoo1', 'voodoo2', 'banshee' and 'voodoo3'. The
+# Voodoo2 support is not yet complete, but almost usable. The Banshee and
+# Voodoo3 support is under construction, but basically usable. The 2D/3D cards
+# require an external VGA BIOS the vga extension option to be set to 'voodoo'.
+# If the i440BX PCI chipset is selected, they can be assigned to AGP (slot #5).
+# The gui screen update timing for all models is controlled by the related 'vga'
+# options.
+#
+# Examples:
+#   voodoo: enabled=1, model=voodoo2
+#=======================================================================
+#voodoo: enabled=1, model=voodoo1
+
+mouse: enabled=0
+
+pci: enabled=1, chipset=i440fx
+
+
+#=======================================================================
+# CMOSIMAGE:
+# This defines a binary image file with size 128 bytes that can be loaded into
+# the CMOS RAM at startup. The rtc_init parameter controls whether initialize
+# the RTC with values stored in the image. By default the time0 argument given
+# to the clock option is used. With 'rtc_init=image' the image is the source
+# for the initial time.
+#
+# Example:
+#   cmosimage: file=cmos.img, rtc_init=image
+#=======================================================================
+#cmosimage: file=cmos.img, rtc_init=time0
+
+#=======================================================================
+# private_colormap: Request that the GUI create and use it's own
+#                   non-shared colormap.  This colormap will be used
+#                   when in the bochs window.  If not enabled, a
+#                   shared colormap scheme may be used.  Not implemented
+#                   on all GUI's.
+#
+# Examples:
+#   private_colormap: enabled=1
+#   private_colormap: enabled=0
+#=======================================================================
+private_colormap: enabled=0
+
+#=======================================================================
+# FLOPPYA:
+# Point this to pathname of floppy image file or device
+# This should be of a bootable floppy(image/device) if you're
+# booting from 'a' (or 'floppy').
+#
+# You can set the initial status of the media to 'ejected' or 'inserted'.
+#   floppya: 2_88=path, status=ejected    (2.88M 3.5"  media)
+#   floppya: 1_44=path, status=inserted   (1.44M 3.5"  media)
+#   floppya: 1_2=path, status=ejected     (1.2M  5.25" media)
+#   floppya: 720k=path, status=inserted   (720K  3.5"  media)
+#   floppya: 360k=path, status=inserted   (360K  5.25" media)
+#   floppya: 320k=path, status=inserted   (320K  5.25" media)
+#   floppya: 180k=path, status=inserted   (180K  5.25" media)
+#   floppya: 160k=path, status=inserted   (160K  5.25" media)
+#   floppya: image=path, status=inserted  (guess media type from image size)
+#   floppya: 1_44=vvfat:path, status=inserted  (use directory as VFAT media)
+#   floppya: type=1_44                    (1.44M 3.5" floppy drive, no media)
+#
+# The path should be the name of a disk image file.  On Unix, you can use a raw
+# device name such as /dev/fd0 on Linux.  On win32 platforms, use drive letters
+# such as a: or b: as the path.  The parameter 'image' works with image files
+# only. In that case the size must match one of the supported types.
+# The parameter 'type' can be used to enable the floppy drive without media
+# and status specified. Usually the drive type is set up based on the media type.
+# The optional parameter 'write_protected' can be used to control the media
+# write protect switch. By default it is turned off.
+#=======================================================================
+floppya: 1_44=./boot.img, status=inserted
+#floppya: image=../1.44, status=inserted
+#floppya: 1_44=/dev/fd0H1440, status=inserted
+#floppya: 1_2=../1_2, status=inserted
+#floppya: 1_44=a:, status=inserted
+#floppya: 1_44=a.img, status=inserted, write_protected=1
+#floppya: 1_44=/dev/rfd0a, status=inserted
+
+#=======================================================================
+# FLOPPYB:
+# See FLOPPYA above for syntax
+#=======================================================================
+#floppyb: 1_44=b:, status=inserted
+#floppyb: 1_44=b.img, status=inserted
+
+#=======================================================================
+# ATA0, ATA1, ATA2, ATA3
+# ATA controller for hard disks and cdroms
+#
+# ata[0-3]: enabled=[0|1], ioaddr1=addr, ioaddr2=addr, irq=number
+# 
+# These options enables up to 4 ata channels. For each channel
+# the two base io addresses and the irq must be specified.
+# 
+# ata0 and ata1 are enabled by default with the values shown below
+#
+# Examples:
+#   ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
+#   ata1: enabled=1, ioaddr1=0x170, ioaddr2=0x370, irq=15
+#   ata2: enabled=1, ioaddr1=0x1e8, ioaddr2=0x3e0, irq=11
+#   ata3: enabled=1, ioaddr1=0x168, ioaddr2=0x360, irq=9
+#=======================================================================
+ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
+ata1: enabled=1, ioaddr1=0x170, ioaddr2=0x370, irq=15
+ata2: enabled=0, ioaddr1=0x1e8, ioaddr2=0x3e0, irq=11
+ata3: enabled=0, ioaddr1=0x168, ioaddr2=0x360, irq=9
+
+ata0-master: type=disk, mode=flat, path="./disk.img"
+
+#=======================================================================
+# BOOT:
+# This defines the boot sequence. Now you can specify up to 3 boot drives,
+# which can be 'floppy', 'disk', 'cdrom' or 'network' (boot ROM).
+# Legacy 'a' and 'c' are also supported.
+# Examples:
+#   boot: floppy
+#   boot: cdrom, disk
+#   boot: network, disk
+#   boot: cdrom, floppy, disk
+#=======================================================================
+boot: floppy, disk
+# boot: disk
+
+#=======================================================================
+# FLOPPY_BOOTSIG_CHECK: disabled=[0|1]
+# Enables or disables the 0xaa55 signature check on boot floppies
+# Defaults to disabled=0
+# Examples:
+#   floppy_bootsig_check: disabled=0
+#   floppy_bootsig_check: disabled=1
+#=======================================================================
+floppy_bootsig_check: disabled=1
+
+log: bochsout.txt
+panic: action=ask
+error: action=report
+info: action=report
+debug: action=ignore, pci=report # report BX_DEBUG from module 'pci'
+debugger_log: -
+
+
+parport1: enabled=1, file="parport.out"
+
+sound: driver=default, waveout=/dev/dsp. wavein=, midiout=
+
+speaker: enabled=1, mode=sound, volume=15
