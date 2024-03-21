@@ -1,15 +1,15 @@
-all: run-bochs
+all: build-img run-bochs
 
-build-qemu:
-	nasm boot.asm -o boot.bin
-	qemu-img create boot.img 1474560B
-	dd if=boot.bin of=boot.img bs=512 count=1 conv=notrunc
+mount-fat:
+	mkdir media
 
-build-bochs:
+
+# the size of floppy is often 1.44M, that is 1474560B, create floppy image and write first block
+build-img:
 	nasm boot.asm -o boot.bin
-	bximage
+	nasm loader.asm -o loader.bin
+	dd if=/dev/zero of=boot.img bs=1024 count=1440 conv=notrunc
 	dd if=boot.bin of=boot.img bs=512 count=1 conv=notrunc
-	bximage
 
 run-qemu:
 	qemu-system-x86_64 -fda boot.img -serial mon:stdio -display curses
@@ -21,4 +21,4 @@ clean-log:
 	rm *.txt
 
 clean:
-	rm bochsout.txt boot.img disk.img boot.bin
+	rm bochsout.txt *.img *.bin
