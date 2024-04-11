@@ -1,314 +1,49 @@
-; set the start address of this section to 0x7c00
-; BIOS will copy the first sector in floppy to memory position 0x7c00
   org 0x7c00
 
-; some macros 
-; Service Macros
-VideoServices equ 10h
-DiskServices equ 13h
-
-; Structure Macros
 BaseOfStack equ 0x7c00
-BaseOfLoader equ 0x1000
-OffsetOfLoader equ 0x00
-; Calculated by (BPB_RootEntCnt * 32 + 512 - 1) / 512
-RootDirSectors equ 14
-; Calculated by (1 + BPB_FATSz16 * BPB_NumFATs)
-SectorNumOfRootDirStart equ 19
-; Only one boot section
-SectorNumOfFAT1Start equ 1
-; Calculated by (SectorNumOfRootDirStart - 2), because Root Dir should start from 2
-SectorBalance equ 17
 
-;======= tmp variable
-RootDirSizeForLoop dw RootDirSectors
-SectorNo dw 0
-Odd db 0
-
-;======= display messages
-StartBootMessage: db "Start Boot"
-NoLoaderMessage: db "ERROR:No LOADER Found"
-LoaderFileName: db "LOADER BIN",0
-
-; FAT12 file system, refer to https://en.wikipedia.org/wiki/Design_of_the_FAT_file_system
-; ---------------- 2879
-; | Data section |
-; ---------------- 
-; | Root Entries |
-; ---------------- 19
-; |     FAT2     |
-; ---------------- 10
-; |     FAT1     |
-; ---------------- 1
-; | Boot Section |
-; ---------------- 0
-  jmp Label_Start
-  nop
-  BS_OEMName db 'MINEboot'
-  BPB_BytesPerSec dw 512
-  BPB_SecPerClus db 1
-  BPB_RsvdSecCnt dw 1
-; Numbers of FAT
-  BPB_NumFATs db 2
-; Root Entry Numbers, 32 bytes per entry
-  BPB_RootEntCnt dw 224
-; Total Section Numbers, 1.44M -> 2880 sections
-  BPB_TotSec16 dw 2880
-  BPB_Media db 0xf0
-; Section number per FAT Table
-  BPB_FATSz16 dw 9
-; Section number per track
-  BPB_SecPerTrk dw 18
-; Track head number
-  BPB_NumHeads dw 2
-  BPB_hiddSec dd 0
-  BPB_TotSec32 dd 0
-  BS_DrvNum db 0
-  BS_Reserved1 db 0
-  BS_BootSig db 29h
-  BS_VolID dd 0
-; Volume Label, 11 bytes
-  BS_VolLab db 'boot loader'
-; 8 bytes
-  BS_FileSysType db 'FAT12   '
-
-
-;====== functions
-
-; Boot code in boot section with offset as 0x62
-; function: read sectors from floppy
-; params: 
-; ax: the section to be read
-; cl: the number of sections to read
-; es:bx: the target address of buffer
-Func_ReadOneSector:
-; turn Logical Block Address(LBA) into Cylinder/Head/Sector(CHS) format
-;   Cylinder = (LBA / BPB_SecPerTrk) >> 1
-;   Head     = (LBA / BPB_SecPerTrk) & 1
-;   Sector   = (LBA % BPB_SecPerTrk) + 1
-  push bp
-  mov bp, sp
-  sub esp, 2
-  mov byte [bp - 2], cl
-  push bx
-  mov bl, [BPB_SecPerTrk]
-; AL = LBA / BPB_SecPerTrk
-; AH = LBA % BPB_SecPerTrk
-  div bl
-  inc ah
-; | Cylinder Number high 2 bits | Sector Number 6 bits |
-  mov cl, ah
-  mov dh, al
-; the number of section to read (al should > 0)
-  shr al, 1
-; low 8 bits of Cylinder number
-  mov ch, al
-  and dh, 1
-  pop bx
-  mov dl, [BS_DrvNum]
-Label_Go_On_Reading:
-  mov ah, 2h
-  mov al, byte [bp - 2]
-; params:
-;   AL: the number of section to read
-;   CH: Cylinder low 8 bits
-;   CL: Sector Number 6 bits and Cylinder high 2 bits for disk only
-;   DH: head number
-;   DL: Driver Number
-;   ES:BX: Buffer address
-  int DiskServices
-; if success, CF is set to 0
-  jc Label_Go_On_Reading
-  add esp, 2
-  pop bp
-  ret
-
-;======= get FAT Entry
-Func_GetFATEntry:
-  push es
-  push bx
-  push ax
-  mov ax, 00
-  mov es, ax
-  pop ax
-  mov byte [Odd], 0
-  mov bx, 3
-  mul bx
-  mov bx, 2
-  div bx
-  cmp dx, 0
-  jz Label_Even
-  mov byte [Odd], 1
-Label_Even:
-  xor dx, dx
-  mov bx, [BPB_BytesPerSec]
-  div bx
-  push dx
-  mov bx, 8000h
-  add ax, SectorNumOfFAT1Start
-  mov cl, 2
-  call Func_ReadOneSector
-  pop dx
-  add bx, dx
-  mov ax, [es:bx]
-  cmp byte [Odd], 1
-  jnz Label_Even_2
-  shr ax, 4
-Label_Even_2:
-  and ax, 0fffh
-  pop bx
-  pop es
-  ret
-
-; Start
 Label_Start:
   mov ax, cs
   mov ds, ax
   mov es, ax
   mov ss, ax
-; setting RSP for stack
   mov sp, BaseOfStack
 
-; Next we will use BIOS interrupt calls to initialize System
-; BIOS Interrupt calls refer to https://en.wikipedia.org/wiki/BIOS_interrupt_call
-
-;======= clear screen
-; 0x06: scroll screen
+; clear screen
   mov ax, 0600h
   mov bx, 0700h
   mov cx, 0
   mov dx, 0184fh
-  int VideoServices
+  int 10h
 
-;======= set focus
-; 0x02: set cursor position
+; set focus to (0, 0)
   mov ax, 0200h
   mov bx, 0000h
   mov dx, 0000h
-  int VideoServices
+  int 10h
 
-;======= display on screen : Start Booting......
-; 0x13: writing string
+; display on screen
   mov ax, 1301h
-  ; 0b10001010
   mov bx, 000fh
   mov dx, 0000h
-  ; string length
   mov cx, 10
   push ax
   mov ax, ds
   mov es, ax
   pop ax
   mov bp, StartBootMessage
-  int VideoServices
+  int 10h
 
-;======= reset floppy
+; reset floppy
   xor ah, ah
   xor dl, dl
-  int DiskServices
-  ; jmp $
-  
+  int 13h
+; $ represent the address of current instruction
+  jmp $
 
-; ;======= search loader.bin
-;   mov word [SectorNo], SectorNumOfRootDirStart
+StartBootMessage: db "Start Boot"
 
-; Lable_Search_In_Root_Dir_Begin:
-;   cmp word [RootDirSizeForLoop], 0
-;   jz Label_No_LoaderBin
-;   dec word [RootDirSizeForLoop]
-;   mov ax, 00h
-;   mov es, ax
-;   mov bx, 8000h
-;   mov ax, [SectorNo]
-;   mov cl, 1
-;   call Func_ReadOneSector
-;   mov si, LoaderFileName
-;   mov di, 8000h
-;   cld
-;   mov dx, 10h
-; Label_Search_For_LoaderBin:
-;   cmp dx, 0
-;   jz Label_Goto_Next_Sector_In_Root_Dir
-;   dec dx
-;   mov cx, 11
-; Label_Cmp_FileName:
-;   cmp cx, 0
-;   jz Label_FileName_Found
-;   dec cx
-;   lodsb
-;   cmp al, byte [es:di]
-;   jz Label_Go_On
-;   jmp Label_Different
-; Label_Go_On:
-;   inc di
-;   jmp Label_Cmp_FileName
-; Label_Different:
-;   and di, 0ffe0h
-;   add di, 20h
-;   mov si, LoaderFileName
-;   jmp Label_Search_For_LoaderBin
-; Label_Goto_Next_Sector_In_Root_Dir:
-;   add word [SectorNo], 1
-;   jmp Lable_Search_In_Root_Dir_Begin
-
-; ;======= display on screen : ERROR:No LOADER Found
-; Label_No_LoaderBin:
-;   mov ax, 1301h
-;   mov bx, 008ch
-;   mov dx, 0100h
-;   mov cx, 21
-;   push ax
-;   mov ax, ds
-;   mov es, ax
-;   pop ax
-;   mov bp, NoLoaderMessage
-;   int 10h
-;   jmp $
-
-; ;======= found loader.bin name in root director struct
-; Label_FileName_Found:
-;   mov ax, RootDirSectors
-;   and di, 0ffe0h
-;   add di, 01ah
-;   mov cx, word [es:di]
-;   push cx
-;   add cx, ax
-;   add cx, SectorBalance
-;   mov ax, BaseOfLoader
-;   mov es, ax
-;   mov bx, OffsetOfLoader
-;   mov ax, cx
-; Label_Go_On_Loading_File:
-;   push ax
-;   push bx
-;   mov ah, 0eh
-;   mov al, '.'
-;   mov bl, 0fh
-;   int 10h
-;   pop bx
-;   pop ax
-;   mov cl, 1
-;   call Func_ReadOneSector
-;   pop ax
-;   call Func_GetFATEntry
-;   cmp ax, 0fffh
-;   jz Label_File_Loaded
-;   push ax
-;   mov dx, RootDirSectors
-;   add ax, dx
-;   add ax, SectorBalance
-;   add bx, [BPB_BytesPerSec]
-;   jmp Label_Go_On_Loading_File
-; Label_File_Loaded:
-;   jmp $
-
-
-;======= fill zero until whole sector
-; $: means the current code position after compiling
-; $$: means the start position of this section (org) after compiling
-; times executes instructions repeatly
+; fill zeros
+; $$ represent the address of this section
   times 510 - ($ - $$) db 0
-; magic number for boot sector
   dw 0xaa55
-
-
