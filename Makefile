@@ -2,7 +2,11 @@ all: build-img run-bochs
 
 mount-fat:
 	mkdir media
-
+	mount -t vfat -o loop boot.img media/
+	cp loader.bin media/
+	sync
+	umount media
+	rmdir media
 
 # the size of floppy is often 1.44M, that is 1474560B, create floppy image and write first block
 build-img:
